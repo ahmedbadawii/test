@@ -1,9 +1,0 @@
----
-- name: Configure Docker, kubectl, and Jenkins
-  hosts: centos
-  become: yes
-  roles:
-    - docker
-    - kubectl
-    - jenkins
-
