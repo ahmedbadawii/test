@@ -1,0 +1,66 @@
+pipeline {
+  agent any
+  environment {
+    DOCKERHUB_CRED = credentials('ivolve-dockerhub-creds')
+    DOCKER_IMAGE = "ahmedbadawi/clouddevops"
+    KUBECONFIG_CRED = credentials('ivolve-kubeconfig')
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+    stage('Build Image') {
+      steps {
+        sh 'docker build -t ${DOCKER_IMAGE}:$BUILD_NUMBER -f docker/Dockerfile .'
+      }
+    }
+    stage('Scan Image') {
+      steps {
+        script {
+          sh '''
+            if command -v trivy >/dev/null 2>&1; then
+              trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE}:$BUILD_NUMBER || true
+            else
+              echo "skip scan"
+            fi
+          '''
+        }
+      }
+    }
+    stage('Push to DockerHub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'ivolve-dockerhub-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+          sh 'echo $PASS | docker login -u $USER --password-stdin'
+          sh 'docker push ${DOCKER_IMAGE}:$BUILD_NUMBER'
+          sh 'docker tag ${DOCKER_IMAGE}:$BUILD_NUMBER ${DOCKER_IMAGE}:latest'
+          sh 'docker push ${DOCKER_IMAGE}:latest'
+          sh 'docker rmi ${DOCKER_IMAGE}:$BUILD_NUMBER || true'
+        }
+      }
+    }
+    stage('Update K8s Manifests') {
+      steps {
+        sh '''
+          sed -i "s|ahmedbadawi/clouddevops:latest|${DOCKER_IMAGE}:$BUILD_NUMBER|g" k8s/deployment.yaml
+          git config user.email "jenkins@ivolve.local"
+          git config user.name "Jenkins"
+          git add k8s/deployment.yaml
+          git commit -m "ci: update image to ${DOCKER_IMAGE}:$BUILD_NUMBER" || true
+          git push origin HEAD:main
+        '''
+      }
+    }
+    stage('Push Manifests') {
+      steps {
+        echo 'manifests pushed'
+      }
+    }
+  }
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}

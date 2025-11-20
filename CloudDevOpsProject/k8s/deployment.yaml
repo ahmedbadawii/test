@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clouddevops-app
+  namespace: ivolve
+  labels:
+    app: clouddevops
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: clouddevops
+  template:
+    metadata:
+      labels:
+        app: clouddevops
+    spec:
+      containers:
+      - name: clouddevops
+        image: ahmedbadawi/clouddevops:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

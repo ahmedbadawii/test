@@ -1,0 +1,22 @@
+- name: Install Java
+  package:
+    name: openjdk-11-jre
+    state: present
+
+- name: Add Jenkins repo and key
+  apt_key:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install Jenkins
+  apt:
+    name: jenkins
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Start and enable Jenkins
+  service:
+    name: jenkins
+    state: started
+    enabled: yes
